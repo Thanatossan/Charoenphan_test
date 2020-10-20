@@ -1,25 +1,24 @@
 import math
-#genlocation
-def genWarehouse(row,column,height,width):  
-    Warehouse = []
-    array_area = [(1,1),(2,2),(2,3),(3,3),(4,4)] 
-    for i in range(1,row+1):
-        # area1 = input('area1 :')
-        # area2= input('area2 : ')
-        for j in range(1,column+1):
-            for k in range(1,height+1):
-                for l in range(1,width+1):
-                    if k == 1:
-                        location1= location(i,j,k,l,True,False,array_area[i-1])
-                    else:
-                        location1= location(i,j,k,l,True,True,array_area[i-1])
-                    Warehouse.append(location1)
-    return Warehouse
-    # for i in range(len(Warehouse)):
-    #     print(Warehouse[i].name)
-        
-class location:
-    def __init__(self,row,column,height,width,is_empty,avaliable,area):
+import random
+import string
+from functools import total_ordering
+
+alphabets = string.ascii_lowercase
+W_row = 2
+W_col = 3
+W_height = 5
+W_width = 5
+
+class Warehouse:
+    def __init__(self) -> None:
+        self.all = []
+        self.same_row = []
+        self.same_col = []
+        self.same_height = []
+
+
+class Location:
+    def __init__(self, row, column, height, width, is_empty, avaliable, area):
         self.row = row
         self.col = column
         self.height = height
@@ -28,70 +27,147 @@ class location:
         self.avaliable = avaliable
         self.area1 = area[0]
         self.area2 = area[1]
-        self.name = str(row)+ "|" +str(column)+ "|" +str(height)+ "|" +str(width)
-        
-    # Warehouse[array_score.index(min(array_score))].is_empty = False
+        self.name = f"{alphabets[row-1]}{alphabets[column-1]}{alphabets[height-1]}{width}"
+        self.stored = [" "]
     
+    def __repr__(self) -> str:
+        return self.name
+    
+    def add_product(self, product):
+        self.stored = [product]
+
+class Product:
+    def __init__(self, name, weight, root_location):
+        self.name = name
+        self.weight = weight
+        self.root_location = root_location
+    
+    def __repr__(self) -> str:
+        return self.name
+
+
+product_stored_at = {}
+
+
+def gen_all_product(products_info, lower_location):
+    return [
+        Product(info["name"], info["weight"], lower_location[index])
+        for index, info in enumerate(products_info)
+    ]
+
+
+def gen_warehouse(row, column, height, width):
+    warehouse = []
+    lower_locations = []
+    array_area = [(1, 1), (2, 2), (2, 3), (3, 3), (4, 4)]
+    for i in range(1, row + 1):
+        for j in range(1, column + 1):
+            for k in range(1, height + 1):
+                for l in range(1, width + 1):
+                    if k == 1:
+                        location1 = Location(i, j, k, l, True, False, array_area[i - 1])
+                        lower_locations.append(location1)
+                    else:
+                        location1 = Location(i, j, k, l, True, True, array_area[i - 1])
+                    warehouse.append(location1)
+    return (warehouse, lower_locations)    
+    
+def print_warehouse(warehouse):
+    location_str = []
+    info = ""
+    for location in warehouse:
+        info += f"{location.name}:{location.stored if not location.is_empty else '[   ]'}  "
+        if location.width == W_width:
+            location_str.insert(0, info)
+            info = ""
+            if location.height == W_height:
+                for loc in location_str:
+                    print(loc)
+                location_str.clear()
+                print("-----------------------"*4)
+                
+                if location.col == W_col:
+                    print("------- END ----------"*4)
+        
+        
+
 def cal_height(location_height, is_light):
-    
-    if(is_light):
-        if(location_height <= 3) :
-            return (6 - location_height + 20)
-        else : 
-            return (6 - location_height)
-    
-    elif(location_height > 3):
-        return 9000000000
-    else:
-        return (location_height - 1) 
-    # print(array_score)
-        
-            
-        # score = 0
-        # if location.is_empty :
-        #     score = 1
-
-def genlocation(rootnode, weight):
-    array_score = []
-    for location in Warehouse:
-        dist_area1 = 1000 * abs(location.area1 - rootnode.area1)
-        dist_area2 = 1000 * abs(location.area2 - rootnode.area2)
-        # dist_row = 1000*abs(location.row -rootnode.row)
-        dist_col = 100*abs(location.col - rootnode.col)
-        dist_height = cal_height(location.height, weight)
-        dist_width = abs(location.width - rootnode.width) 
-        # score = dist_row + dist_col + dist_height + dist_width + dist_area1 + dist_area2
-        score =  dist_col  + min(dist_area1, dist_area2) + math.sqrt(pow(dist_height,2) + pow(dist_width,2))
-        if(score == 0) :
-            score = 10000000000
-        if (location.is_empty and location.avaliable):
-            array_score.append(score)
+    if is_light:
+        if location_height <= 3:
+            return (W_height+1) - location_height + 20
         else:
-            array_score.append(score*100000)
+            return (W_height+1) - location_height
+
+    elif location_height > 3:
+        return math.inf
+    else:
+        return location_height - 1
+
+
+
+def store_in_location(warehouse, product):
+    array_cost = []
+    for location in warehouse:
+        dist_area1 = 1000 * abs(location.area1 - product.root_location.area1)
+        dist_area2 = 1000 * abs(location.area2 - product.root_location.area2)
+
+        dist_col = 100 * abs(location.col - product.root_location.col)
+        dist_height = cal_height(location.height, product.weight)
+        dist_width = abs(location.width - product.root_location.width)
+
+
+        cost = (
+            dist_col
+            + min(dist_area1, dist_area2)
+            + math.sqrt(pow(dist_height, 2) + pow(dist_width, 2))
+        )
+
+        if cost == 0:
+            cost = 10000000000
+        if location.is_empty and location.avaliable:
+            array_cost.append(cost)
+        else:
+            array_cost.append(cost * 100000)
+
+
+    min_cost = min(array_cost)
+    warehouse_index = array_cost.index(min_cost)
+    stored_location = warehouse[warehouse_index]
+    stored_location.is_empty = False
+    stored_location.add_product(product)
+
+    print("Stored At", stored_location)
+
+
+warehouse, lower_location = gen_warehouse(W_row, W_col, W_height, W_width)
+
+products = gen_all_product(
+    [
+        {"name": "เลย์", "weight": True},
+        {"name": "น้ำ1", "weight": True},
+        {"name": "ปูน1", "weight": False},
+        {"name": "ฝรั่ง", "weight": True},
+        {"name": "น้ำ2", "weight": True},
+        {"name": "ปูน2", "weight": False},
+    ],
+    lower_location
+)
+
+for i in range(len(products)):
+    lower_location[i].stored = [products[i]]
+    lower_location[i].is_empty = False
+
+
+while True:
+    try:
+        print_warehouse(warehouse)
+        print("Products:", tuple(enumerate(products)))
+        product_index = input("รับ: ").strip()
+        indexs = [int(x) for x in product_index.split(" ")]
+        print(indexs)
+        print("เอาเข้า warehouse")
+        for product_index in indexs:
+            store_in_location(warehouse, products[product_index])
+    except Exception as e:
+        print("Error", e)
     
-    # print(array_score)
-    # print(min(array_score))
-    print(str(min(array_score)))
-    
- #   print(Warehouse[array_score.index(min(array_score))].name +"     " + str(min(array_score)))
-    
-    Warehouse[array_score.index(min(array_score))].is_empty = False
-    return Warehouse[array_score.index(min(array_score))]
-    
-        
-W_row = 5
-W_col = 3
-W_height = 5
-W_width = 16
-Warehouse= genWarehouse(W_row,W_col,W_height,W_width)
-
-
-root_location = location(2,3,1,5,False,True,(2,2))
-
-
-
-product_is_light = True
-for i in range(100):
-    print(i)
-    x = genlocation(root_location, product_is_light)
-    print(x.name)
